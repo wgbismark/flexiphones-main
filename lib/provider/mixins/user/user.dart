@@ -8,6 +8,7 @@ import 'package:fl_country_code_picker/fl_country_code_picker.dart';
 import 'package:flexiphones/extensions/value_formating.dart';
 import 'package:flexiphones/extensions/value_validation.dart';
 import 'package:flexiphones/helpers/api_helper.dart';
+import 'package:flexiphones/helpers/google_auth_helper.dart';
 import 'package:flexiphones/helpers/navigation_helper.dart';
 import 'package:flexiphones/helpers/snackbar_helper.dart';
 import 'package:flexiphones/models/notifications_m.dart';
@@ -460,6 +461,7 @@ mixin User on BaseNotifier {
   /// One sign-in for customers and agents: both logins are tried with the
   /// same details, and the app opens whichever account(s) exist.
   Future<void> emailSignIn(BuildContext context) async {
+    if (!robotCheckPassed(context)) return;
     await DS.storage.deleteAll();
     userUDLoading = true;
     notifyListeners();
@@ -473,7 +475,12 @@ mixin User on BaseNotifier {
         // here; the agent token comes from partnerSignIn alongside.
         dio.post(
           ApiUrls.loginAsPST,
-          data: {"email": email, "password": password, "as": "customer"},
+          data: {
+            "email": email,
+            "password": password,
+            "as": "customer",
+            "cf_turnstile_token": turnstileToken,
+          },
           options: Options(
             headers: _jsonHeaders,
             validateStatus: (status) => true,
@@ -532,8 +539,83 @@ mixin User on BaseNotifier {
     }
   }
 
+  /// Latest Cloudflare Turnstile ("I am not a robot") token; null until the
+  /// check passes. Sent to the API, which verifies it with the secret key.
+  String? turnstileToken;
+
+  /// True when the robot check is done; otherwise tells the person.
+  bool robotCheckPassed(BuildContext context) {
+    if (turnstileToken != null && turnstileToken!.isNotEmpty) return true;
+    SnackbarHelper.danger(
+      context: context,
+      title: "Confirm you're human",
+      message: "Tick \"I am not a robot\" first, then try again.",
+    );
+    return false;
+  }
+
+  /// Continue with Google (customer). Firebase signs the person in, our API
+  /// verifies the Firebase token, creates the customer if new and returns the
+  /// same session body as /login.
+  Future<void> googleSignIn(BuildContext context) async {
+    if (userUDLoading || !robotCheckPassed(context)) return;
+    userUDLoading = true;
+    notifyListeners();
+    try {
+      final idToken = await GoogleAuthHelper.idToken();
+      if (idToken == null) return; // closed the Google sheet
+      final response = await dio.post(
+        ApiUrls.googleLoginPST,
+        data: {
+          "id_token": idToken,
+          "as": "customer",
+          "cf_turnstile_token": turnstileToken,
+        },
+        options: Options(headers: _jsonHeaders, validateStatus: (_) => true),
+      );
+      debugPrint("=== [googleSignIn] ${response.statusCode}");
+      if (!context.mounted) return;
+      if (response.statusCode == 200 && response.data is Map) {
+        await DS.storage.deleteAll();
+        await DS.storage.write(
+          key: "user",
+          value: jsonEncode(stampExpiry(response.data)),
+        );
+        await getUserDetails();
+        if (!context.mounted) return;
+        NavigationHelper.pushAndRemoveUntil(context, const InitScreen());
+      } else {
+        await GoogleAuthHelper.signOut();
+        SnackbarHelper.danger(
+          context: context,
+          title: "Google sign-in failed",
+          message: _errorText(
+            response.data,
+            "Could not sign you in with Google. Please try again.",
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("!!! [googleSignIn] $e");
+      if (context.mounted) {
+        SnackbarHelper.danger(
+          context: context,
+          title: "Google sign-in failed",
+          message:
+              e is StateError
+                  ? e.message
+                  : "Check your internet connection and try again.",
+        );
+      }
+    } finally {
+      userUDLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> verifyEmail(BuildContext context, ColorScheme ch) async {
     emailFocusNode.unfocus();
+    if (!robotCheckPassed(context)) return;
     // Android keyboards often append a trailing space after autocomplete,
     // which made the untrimmed text fail validation.
     final email = emailEditingController.text.trim();
@@ -562,7 +644,7 @@ mixin User on BaseNotifier {
     try {
       var response = await dio.post(
         ApiUrls.emailVerificationPST,
-        data: {"email": email},
+        data: {"email": email, "cf_turnstile_token": turnstileToken},
         options: Options(
           headers: {
             "Content-Type": "application/json",

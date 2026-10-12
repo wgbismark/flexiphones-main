@@ -67,6 +67,9 @@ dependencies:
   flutter_dominant_color_container: ^1.0.0
   upgrader: ^11.5.1
   flutter_svg: ^2.2.1
+  firebase_core: ^4.2.0
+  firebase_auth: ^6.1.1
+  cloudflare_turnstile: ^3.8.1
 
 
 dev_dependencies:

@@ -3,7 +3,9 @@ import 'package:flexiphones/provider/provider_class.dart';
 import 'package:flexiphones/screens/onboarding/forgot_password.dart';
 import 'package:flexiphones/shared_widgets/bgw.dart';
 import 'package:flexiphones/shared_widgets/generalwidgets.dart';
+import 'package:flexiphones/shared_widgets/google_logo.dart';
 import 'package:flexiphones/shared_widgets/input_field.dart';
+import 'package:flexiphones/shared_widgets/robot_check.dart';
 import 'package:flexiphones/shared_widgets/smart_button.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -120,7 +122,9 @@ class _AgentSigninState extends State<AgentSignin> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 10),
+                      RobotCheck(onToken: (t) => p.turnstileToken = t),
+                      const SizedBox(height: 10),
                       SizedBox(
                         height: 48,
                         width: double.infinity,
@@ -133,6 +137,22 @@ class _AgentSigninState extends State<AgentSignin> {
                           },
                           child: Text(
                             "Sign in",
+                            style: ptstyle(size: 13, weight: 600),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 48,
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed:
+                              p.agentLoading
+                                  ? null
+                                  : () => p.agentGoogleSignIn(context),
+                          icon: const GoogleLogo(size: 18),
+                          label: Text(
+                            "Continue with Google",
                             style: ptstyle(size: 13, weight: 600),
                           ),
                         ),

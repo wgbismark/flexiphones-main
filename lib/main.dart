@@ -1,4 +1,5 @@
 import 'package:adaptive_theme/adaptive_theme.dart';
+import 'package:flexiphones/helpers/google_auth_helper.dart';
 import 'package:flexiphones/provider/mixins/session/session.dart';
 import 'package:flexiphones/provider/provider_class.dart';
 import 'package:flexiphones/screens/init_screen.dart';
@@ -11,7 +12,9 @@ import 'package:provider/provider.dart';
 //80001fcxvoid
 //
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await GoogleAuthHelper.init();
   runApp(
     ChangeNotifierProvider(
       create: (context) => SharedProvider(),

@@ -33,6 +33,8 @@ class ApiUrls {
   //?ACCOUNTS — one email can be a customer AND an agent (two accounts,
   // two tokens). /login takes "as": "customer" | "agent".
   static const loginAsPST = "$base/login";
+  // Google sign-in: send the Firebase ID token, get back the same body as /login.
+  static const googleLoginPST = "$base/auth/google";
   static const accountRolesPST = "$base/account-roles";
   //?SESSION — tokens last 24h (any role's token works on these)
   static const sessionGET = "$base/session";

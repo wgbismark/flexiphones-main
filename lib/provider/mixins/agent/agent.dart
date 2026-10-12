@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flexiphones/extensions/value_validation.dart';
 import 'package:flexiphones/helpers/api_helper.dart';
+import 'package:flexiphones/helpers/google_auth_helper.dart';
 import 'package:flexiphones/helpers/snackbar_helper.dart';
 import 'package:flexiphones/models/agent_m.dart';
 import 'package:flexiphones/models/promo_usage_m.dart';
@@ -407,7 +408,12 @@ mixin Agent on User {
   Future<Response> _loginAs(String email, String password, String as) =>
       dio.post(
         ApiUrls.loginAsPST,
-        data: {"email": email, "password": password, "as": as},
+        data: {
+          "email": email,
+          "password": password,
+          "as": as,
+          "cf_turnstile_token": turnstileToken,
+        },
         options: _publicOptions,
       );
 
@@ -449,6 +455,7 @@ mixin Agent on User {
 
   Future<void> agentSignIn(BuildContext context) async {
     if (!agentSignInFormKey.currentState!.validate()) return;
+    if (!robotCheckPassed(context)) return;
 
     final email = agentSignInEmailController.text.trim();
     final password = agentSignInPasswordController.text;
@@ -511,6 +518,64 @@ mixin Agent on User {
           context: context,
           title: "Sign in failed",
           message: "Check your internet connection and try again.",
+        );
+      }
+    } finally {
+      agentLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Continue with Google (agent). Same Firebase token as customers, sent
+  /// with "as": "agent". The API answers like /login: 200 with the agent
+  /// session, 403 `not_an_agent` when this Google account has no agent yet.
+  Future<void> agentGoogleSignIn(BuildContext context) async {
+    if (agentLoading || !robotCheckPassed(context)) return;
+    agentLoading = true;
+    notifyListeners();
+    try {
+      final idToken = await GoogleAuthHelper.idToken();
+      if (idToken == null) return;
+      final r = await dio.post(
+        ApiUrls.googleLoginPST,
+        data: {
+          "id_token": idToken,
+          "as": "agent",
+          "cf_turnstile_token": turnstileToken,
+        },
+        options: _publicOptions,
+      );
+      debugPrint("=== [agentGoogle] ${r.statusCode}");
+      final body = r.data is Map ? r.data as Map : const {};
+      if (!context.mounted) return;
+      if (r.statusCode == 200 && r.data is Map) {
+        await _saveSession(PartnerData.fromJson(r.data));
+        resetAgentAuthForms();
+        if (!context.mounted) return;
+        openAgentShell(context);
+      } else {
+        await GoogleAuthHelper.signOut();
+        SnackbarHelper.danger(
+          context: context,
+          title: "Google sign-in failed",
+          message: _apiMessage(
+            r.data,
+            body['code'] == "not_an_agent"
+                ? "This Google account is not an agent account yet."
+                : "Could not sign you in with Google. Please try again.",
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("!!! [agentGoogle] $e");
+      if (context.mounted) {
+        SnackbarHelper.danger(
+          context: context,
+          title: "Google sign-in failed",
+          message:
+              e is StateError
+                  ? e.message
+                  : "Check your internet connection and try again.",
         );
       }
     } finally {

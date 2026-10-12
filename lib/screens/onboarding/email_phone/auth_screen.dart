@@ -5,6 +5,8 @@ import 'package:flexiphones/provider/provider_class.dart';
 import 'package:flexiphones/screens/onboarding/forgot_password.dart';
 import 'package:flexiphones/shared_widgets/fade_slide_in.dart';
 import 'package:flexiphones/shared_widgets/generalwidgets.dart';
+import 'package:flexiphones/shared_widgets/google_logo.dart';
+import 'package:flexiphones/shared_widgets/robot_check.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -234,7 +236,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     () => NavigationHelper.push(context, ForgotPassword()),
               ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 14),
+            RobotCheck(onToken: (t) => p.turnstileToken = t),
+            const SizedBox(height: 14),
             _PrimaryButton(
               label: "Sign in",
               icon: Icons.arrow_forward_rounded,
@@ -245,6 +249,11 @@ class _AuthScreenState extends State<AuthScreen> {
                   p.emailSignIn(context);
                 }
               },
+            ),
+            const SizedBox(height: 16),
+            _GoogleButton(
+              loading: p.userUDLoading,
+              onTap: () => p.googleSignIn(context),
             ),
             const SizedBox(height: 18),
             Center(
@@ -328,7 +337,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 onOpenTerms: () => _showTerms(context),
               ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 14),
+            RobotCheck(onToken: (t) => p.turnstileToken = t),
+            const SizedBox(height: 14),
             _PrimaryButton(
               label: "Create account",
               icon: Icons.person_add_alt_1_rounded,
@@ -344,6 +355,11 @@ class _AuthScreenState extends State<AuthScreen> {
                 }
                 p.verifyEmail(context, ch);
               },
+            ),
+            const SizedBox(height: 16),
+            _GoogleButton(
+              loading: p.userUDLoading,
+              onTap: () => p.googleSignIn(context),
             ),
             const SizedBox(height: 18),
             Center(
@@ -869,6 +885,44 @@ class _PrimaryButton extends StatelessWidget {
                       Icon(icon, color: Colors.white, size: 19),
                     ],
                   ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// "Continue with Google" — outlined, sits under the main button.
+class _GoogleButton extends StatelessWidget {
+  const _GoogleButton({required this.onTap, this.loading = false});
+
+  final VoidCallback onTap;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final ch = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 52,
+      child: OutlinedButton(
+        onPressed: loading ? null : onTap,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          side: BorderSide(color: ch.outlineVariant),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const GoogleLogo(size: 20),
+            const SizedBox(width: 10),
+            Text(
+              "Continue with Google",
+              style: ptstyle(size: 14, weight: 600, color: ch.onSurface),
+            ),
+          ],
         ),
       ),
     );
